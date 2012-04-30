@@ -1,0 +1,4 @@
+- if (everyauth.loggedIn)
+   p= "hello "+everyauth.user
+- else
+   p hello world!

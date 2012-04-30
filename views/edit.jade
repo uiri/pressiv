@@ -1,0 +1,9 @@
+h2 Edit A Presentation
+select
+  - each presentation in everyauth.user.presentations
+    option(value=presentation.name)
+      =presentation.name
+input(type='submit') Select
+br
+br
+textarea

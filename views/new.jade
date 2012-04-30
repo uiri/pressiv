@@ -1,0 +1,12 @@
+h2 New Presentation
+- if ('undefined' !== typeof errors && errors.length)
+  ul#errors
+    - each error in errors
+      li.error= error
+form(method='post')
+  #name
+    label(for='name') Name
+    input(type='text', name='name')
+
+  #submit
+    input(type='submit') Create
