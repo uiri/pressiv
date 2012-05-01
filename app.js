@@ -13,11 +13,26 @@ everyauth.debug = true;
 
 var nano = require('nano')('http://localhost:5984');
 var db = nano.use('pressiv');
-var usersByLogin;
+var dbobj;
 db.get('pressiv_users', {}, function (err, body) {
-    if (!err)
-	usersByLogin = body;
+    if (!err) {
+	dbobj = body;
+    }
 });
+
+function checkForLogin(login) {
+    for (login in dbobj.users)
+	if (dbobj.users[login].login == login)
+	    return true;
+    return false;
+}
+
+function getUserByLogin(login) {
+    for (user in dbobj.users)
+	if (login == dbobj.users[user].login)
+	    return dbobj.users[user];
+    return false;
+}
 
 function makeDirectories(newname) {
     var folders = ['/contents/', '/templates/', '/public/'];
@@ -33,13 +48,7 @@ function insertCallback(err, body) {
 }
 
 everyauth.everymodule.findUserById( function (id, callback) {
-    var userwithid;
-    for (login in usersByLogin)
-	if (usersByLogin[login].id == id && login.match(alphanum)) {
-	    userwithid = usersByLogin[login]
-	    break;
-	}
-    callback(null, userwithid);
+    callback(null, dbobj.users[id]);
 });
 
 everyauth.password
@@ -51,9 +60,9 @@ everyauth.password
 	if (!login) errors.push('Missing login');
 	if (!password) errors.push('Missing password');
 	if (errors.length) return errors;
-	var user = usersByLogin[login];
+	var user = getUserByLogin(login);
 	if (!user) return ['Login failed'];
-	if (!passhash.verify(password, usersByLogin[login].password)) return ['Login failed'];
+	if (!passhash.verify(password, user.password)) return ['Login failed'];
 	return user;
     })
     .loginSuccessRedirect('/')
@@ -65,21 +74,22 @@ everyauth.password
 	var login = newUserAttrs.login;
 	if (!login.match(alphanum)) errors.push('Login must be alphanumeric');
 	if (login.length < 5) errors.push('Login must be at least 5 characters long');
-	if (usersByLogin[login]) errors.push('Login already taken');
+	if (checkForLogin(login)) errors.push('Login already taken');
 	return errors;
     })
     .registerUser( function (newUserAttrs) {
 	var login = newUserAttrs.login;
 	makeDirectories(login);
 	var pass = newUserAttrs.password;
-	usersByLogin.last_id++;
-	usersByLogin[login] = new Object;
-	usersByLogin[login].login = login;
-	usersByLogin[login].id = usersByLogin.last_id;
-	usersByLogin[login].password = passhash.generate(pass);
-	usersByLogin[login].presentations = new Array;
-	db.insert(usersByLogin, 'pressiv_users', insertCallback);
-	return usersByLogin[login];
+	dbobj.last_id++;
+	var id = dbobj.last_id;
+	dbobj.users[id] = new Object;
+	dbobj.users[id].login = login;
+	dbobj.users[id].id = id;
+	dbobj.users[id].password = passhash.generate(pass);
+	dbobj.users[id].presentations = new Object;
+	db.insert(dbobj, 'pressiv_users', insertCallback);
+	return dbobj.users[id];
     })
     .registerSuccessRedirect('/');
 
@@ -106,21 +116,17 @@ app.post('/new', function(req, res, next) {
 	    res.render('new.jade', {'errors': ['Presentation name must be alphanumeric']});
 	    return;
 	}
-	var presentations = usersByLogin[req.user.login].presentations;
+	var presentations = dbobj.users[req.user.id].presentations;
 	var notexist = true;
-	for (presentation in presentations)
-	    if (presentations[presentation].name == name) {
-		res.render('new.jade', {'errors': ['You already have a presentation named that']});
-		return;
-	    }
+	if (typeof(presentations[name]) != "undefined")
+	    notexist = false;
 	if (notexist) {
 	    newpres = new Object;
 	    newpres.name = name;
 	    newpres.slides = new Array;
-	    presentations.push(newpres);
-	    console.log(req.user);
+	    presentations[name] = newpres;
 	    makeDirectories(req.user.login + name);
-	    db.insert(usersByLogin, 'pressiv_users', insertCallback);
+	    db.insert(dbobj, 'pressiv_users', insertCallback);
 	    res.redirect('/edit?presentation=' + name);
 	}
     } else {
@@ -135,12 +141,10 @@ app.get('/*', function(req, res, next) {
     }
     if (resource == 'edit') {
 	if (req.user) {
-	    var slides;
+	    var slides=null;
 	    if (req.body.presentation)
-		for (presentation in req.user.presentations)
-		    if (req.user.presentations[presentation].name == req.body.presentation)
-			slides = req.user.presentations[presentation].slides;
-	    res.render('edit.jade', {'slides': slides});
+		slides = req.user.presentations[req.body.presentation].slides;
+	    res.render('edit.jade', {'slides': [slides]});
 	} else
 	    res.redirect('/');
     } else if (resource == 'new') {

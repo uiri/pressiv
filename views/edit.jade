@@ -1,9 +1,46 @@
 h2 Edit A Presentation
+script
+  var slides = [#{slides}];
+  function Slide() {
+    this.slogan = "";
+    this.slide_title = "";
+    this.code = "";
+    this.primary_text = "";
+    this.secondary_text = "";
+    this.footnote = "";
+    this.image = "";
+    this.class = "";
+    this.list = new Array;
+    this.fadelist = new Array;
+  }
+
+  function addSlide() {
+    slides.push(new Slide());
+    document.getElementById('slidesform').innerHTML = writeSlideForm();
+  }
+
+  function writeSlideForm() {
+    var i = 0;
+    var innerhtml = "";
+    var textfields = ["slogan", "slide_title", "primary_text", "secondary_text", "footnote"]; 
+    for (slide in slides) {
+      i++;
+      for (textfield in textfields) {
+        innerhtml += "<label for='slide_"+i+"_"+textfields[textfield]+"'>"+textfields[textfield]+": </label><input type='text' name='slide_"+i+"_"+textfields[textfield]+"'><br>"
+      }
+    }
+    return innerhtml;
+  }
+
 select
   - each presentation in everyauth.user.presentations
-    option(value=presentation.name)
-      =presentation.name
-input(type='submit') Select
+    option(value=presentation.name) #{presentation.name}
+input(type='button', value='Select')
 br
 br
-textarea
+form(method='post')
+input(type='button', value='New Slide', onclick="addSlide()")
+br
+div(id='slidesform')
+script
+  document.getElementById('slidesform').innerHTML = writeSlideForm();
