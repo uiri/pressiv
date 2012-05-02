@@ -1,6 +1,20 @@
 h2 Edit A Presentation
+-//script(type="text/javascript",src="//api.filepicker.io/v0/filepicker.js")
+style
+  label {
+    float:left;
+    width:150px;
+  }
+  h3 {
+    margin:0;
+    padding:0;
 script
-  var slides = [#{slides}];
+  //filepicker.setKey('dfK7BlxDS8SnZvqaMWUD');
+  filepicker = new Object;
+  filepicker.getFile = function(type, callback) {
+    callback('test');
+  }
+  var slides = !{slides};
   function Slide() {
     this.slogan = "";
     this.slide_title = "";
@@ -14,6 +28,41 @@ script
     this.fadelist = new Array;
   }
 
+  function generateSlides() {
+    var form = document.forms['generatorform'];
+    var i = 0;
+    for (slide in slides) {
+      i++;
+      slides[slide].slogan = form.elements["slide_"+i+"_slogan"].value;
+      slides[slide].slide_title = form.elements["slide_"+i+"_slide_title"].value;
+      slides[slide].code = form.elements["slide_"+i+"_code"].value;
+      slides[slide].primary_text = form.elements["slide_"+i+"_primary_text"].value;
+      slides[slide].secondary_text = form.elements["slide_"+i+"_secondary_text"].value;
+      slides[slide].footnote = form.elements["slide_"+i+"_footnote"].value;
+      slides[slide].image = form.elements["slide_"+i+"_imgurl"].value;
+      if (form.elements["slide_"+i+"_fill"].checked)
+        slides[slide].class = "fill";
+      list_array = form.elements["slide_"+i+"_list"].value.replace("\\r", "").split("\\n");
+      slides[slide].list = new Array;
+      for (item in list_array) slides[slide].list.push(list_array[item]);
+      fadelist_array = form.elements["slide_"+i+"_fadelist"].value.replace("\\r", "").split("\\n");
+      slides[slide].fadelist = new Array;
+      for (item in fadelist_array) slides[slide].fadelist.push(fadelist_array[item]);
+    }
+    var req = new XMLHttpRequest;
+    req.open("POST", "/edit");
+    req.onreadystatechange = function(e) {
+      if (req.readyState == 4) {
+        document.location = document.location.toString().substring(0, document.location.toString().lastIndexOf('/')) + req.responseText;
+      }
+    }
+    req.setRequestHeader('Content-type', 'text/json');
+    var jsontosend = new Object;
+    jsontosend.name = !{name};
+    jsontosend.slides = slides;
+    req.send(JSON.stringify(jsontosend));
+  }
+
   function addSlide() {
     slides.push(new Slide());
     document.getElementById('slidesform').innerHTML = writeSlideForm();
@@ -23,12 +72,27 @@ script
     var i = 0;
     var innerhtml = "";
     var textfields = ["slogan", "slide_title", "primary_text", "secondary_text", "footnote"]; 
+    var listfields = ["List", "Fadelist"];
     for (slide in slides) {
       i++;
+      innerhtml += "<br><hr><br>";
       for (textfield in textfields) {
-        innerhtml += "<label for='slide_"+i+"_"+textfields[textfield]+"'>"+textfields[textfield]+": </label><input type='text' name='slide_"+i+"_"+textfields[textfield]+"'><br>"
+        innerhtml += "<label for='slide_"+i+"_"+textfields[textfield]+"'>"+textfields[textfield]+": </label><input type='text' name='slide_"+i+"_"+textfields[textfield]+"' value='"+slides[slide][textfields[textfield]]+"'><br>"
       }
+      innerhtml += "<br><label for='slide_"+i+"_code'>Code: </label><textarea name='slide_"+i+"_code'>"+slides[slide].code+"</textarea>";
+      for (listfield in listfields) {
+        innerhtml += "<div style='display:block;clear:left;visibility:hidden'><hr></div><label><h3>"+listfields[listfield]+"</h3>One item per line</label><textarea name='slide_"+i+"_"+listfields[listfield].toLowerCase()+"'>";
+        for (item in slides[slide][listfields[listfield]])
+          innerhtml += slides[slide][listfields[listfield]][item] + "\\n";
+        innerhtml += "</textarea><br>";
+      }
+      innerhtml += "<div style='display:block;clear:left;visibility:hidden'><hr></div><input type='button' value='Add an Image to this slide' onclick='filepicker.getFile('image/*', function(url){document.getElementById('slide_"+i+"_imgurl').value = url;});' style='float:left'><input type='hidden' name='slide_"+i+"_imgurl' value='"+slides[slide].image+"'><label for='slide_"+i+"_fill'>Have image fill slide: </label><input type='checkbox' name='slide_"+i+"_fill'";
+      if (slides[slide].class == "fill")
+        innerhtml += " checked=true";
+      innerhtml += " >";
     }
+    if (slides.length)
+      innerhtml += "<hr><br><input type='button' value='Generate' onclick='generateSlides()'>";
     return innerhtml;
   }
 
@@ -38,9 +102,9 @@ select
 input(type='button', value='Select')
 br
 br
-form(method='post')
-input(type='button', value='New Slide', onclick="addSlide()")
-br
-div(id='slidesform')
-script
-  document.getElementById('slidesform').innerHTML = writeSlideForm();
+form(method='post', id='generatorform')
+  input(type='button', value='New Slide', onclick="addSlide()")
+  br
+  div(id='slidesform')
+  script
+    document.getElementById('slidesform').innerHTML = writeSlideForm();

@@ -125,13 +125,40 @@ app.post('/new', function(req, res, next) {
 	    newpres.name = name;
 	    newpres.slides = new Array;
 	    presentations[name] = newpres;
-	    makeDirectories(req.user.login + name);
+	    makeDirectories(req.user.login + '/' + name);
 	    db.insert(dbobj, 'pressiv_users', insertCallback);
 	    res.redirect('/edit?presentation=' + name);
 	}
     } else {
 	res.redirect('/');
     }
+});
+
+app.post('/edit', function(req, res, next) {
+    var jsonasstring = "";
+    req.on('data', function(stuff) {
+	jsonasstring += stuff.toString();
+	try {
+	    var jsontouse = JSON.parse(jsonasstring);
+	    dbobj.users[req.user.id].presentations[jsontouse.name] = jsontouse;
+	    db.insert(dbobj, 'pressiv_users', insertCallback);
+	    fs.writeFile(__dirname + "/contents/" + req.user.login + "/" + jsontouse.name + "/index.json", JSON.stringify(jsontouse), function(err) {
+		if (err) throw err;
+		else console.log("Saved index.json in " + __dirname + "/contents/" + req.user.login + "/" + jsontouse.name + "/index.json");
+	    });
+	    punchconf = new Object;
+	    punchconf.template_dir = "templates";
+	    console.log("Template dir is "+punchconf.template_dir);
+	    punchconf.content_dir = __dirname + "/contents/" + req.user.login + "/" + jsontouse.name;
+	    console.log("Content dir is "+punchconf.content_dir);
+	    punchconf.output_dir = __dirname + "/public/" + req.user.login + "/" + jsontouse.name;
+	    console.log("Output dir is "+punchconf.output_dir);
+	    punch.generate(punchconf);
+	    res.send('/' + req.user.login + '/' + jsontouse.name);
+	} catch (SyntaxError) {
+	    console.log(SyntaxError);
+	}
+    });
 });
 
 app.get('/*', function(req, res, next) {
@@ -142,9 +169,10 @@ app.get('/*', function(req, res, next) {
     if (resource == 'edit') {
 	if (req.user) {
 	    var slides=null;
-	    if (req.body.presentation)
-		slides = req.user.presentations[req.body.presentation].slides;
-	    res.render('edit.jade', {'slides': [slides]});
+	    if (req.query.presentation)
+		slides = req.user.presentations[req.query.presentation].slides;
+	    console.log(slides);
+	    res.render('edit.jade', {'slides': JSON.stringify(slides), 'name': '"' + req.query.presentation + '"'});
 	} else
 	    res.redirect('/');
     } else if (resource == 'new') {
