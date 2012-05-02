@@ -1,8 +1,0 @@
-h2 New Presentation
-form(method='post')
-  #name
-    label(for='name') Name
-    input(type='text', name='name')
-
-  #submit
-    input(type='submit') Create

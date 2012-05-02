@@ -1,5 +1,5 @@
 h2 Edit A Presentation
--//script(type="text/javascript",src="//api.filepicker.io/v0/filepicker.js")
+script(type="text/javascript",src="//api.filepicker.io/v0/filepicker.js")
 style
   label {
     float:left;
@@ -9,11 +9,11 @@ style
     margin:0;
     padding:0;
 script
-  //filepicker.setKey('dfK7BlxDS8SnZvqaMWUD');
-  filepicker = new Object;
+  filepicker.setKey('dfK7BlxDS8SnZvqaMWUD');
+  /*filepicker = new Object;
   filepicker.getFile = function(type, callback) {
     callback('test');
-  }
+  }*/
   var slides = !{slides};
   function Slide() {
     this.slogan = "";
@@ -44,10 +44,12 @@ script
         slides[slide].class = "fill";
       list_array = form.elements["slide_"+i+"_list"].value.replace("\\r", "").split("\\n");
       slides[slide].list = new Array;
-      for (item in list_array) slides[slide].list.push(list_array[item]);
+      if (list_array.length != 0 && list_array[0] != "")
+        for (item in list_array) slides[slide].list.push("<li>"+list_array[item]+"</li>");
       fadelist_array = form.elements["slide_"+i+"_fadelist"].value.replace("\\r", "").split("\\n");
       slides[slide].fadelist = new Array;
-      for (item in fadelist_array) slides[slide].fadelist.push(fadelist_array[item]);
+      if (fadelist_array.length != 0 && fadelist_array[0] != "")
+        for (item in fadelist_array) slides[slide].fadelist.push("<li>"+fadelist_array[item]+"</li>");
     }
     var req = new XMLHttpRequest;
     req.open("POST", "/edit");
@@ -72,7 +74,7 @@ script
     var i = 0;
     var innerhtml = "";
     var textfields = ["slogan", "slide_title", "primary_text", "secondary_text", "footnote"]; 
-    var listfields = ["List", "Fadelist"];
+    var listfields = ["list", "fadelist"];
     for (slide in slides) {
       i++;
       innerhtml += "<br><hr><br>";
@@ -83,7 +85,7 @@ script
       for (listfield in listfields) {
         innerhtml += "<div style='display:block;clear:left;visibility:hidden'><hr></div><label><h3>"+listfields[listfield]+"</h3>One item per line</label><textarea name='slide_"+i+"_"+listfields[listfield].toLowerCase()+"'>";
         for (item in slides[slide][listfields[listfield]])
-          innerhtml += slides[slide][listfields[listfield]][item] + "\\n";
+          innerhtml += slides[slide][listfields[listfield]][item].substring(4, slides[slide][listfields[listfield]][item].lastIndexOf('<')) + "\\n";
         innerhtml += "</textarea><br>";
       }
       innerhtml += "<div style='display:block;clear:left;visibility:hidden'><hr></div><input type='button' value='Add an Image to this slide' onclick='filepicker.getFile('image/*', function(url){document.getElementById('slide_"+i+"_imgurl').value = url;});' style='float:left'><input type='hidden' name='slide_"+i+"_imgurl' value='"+slides[slide].image+"'><label for='slide_"+i+"_fill'>Have image fill slide: </label><input type='checkbox' name='slide_"+i+"_fill'";

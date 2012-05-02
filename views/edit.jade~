@@ -1,8 +1,0 @@
-h2 Edit A Presentation
-select
-  - each presentation in everyauth.user.presentations
-    option(value=presentation.name)
-      =presentation.name
-input(type='button') Select
-
-textarea
