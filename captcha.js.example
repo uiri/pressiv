@@ -1,0 +1,4 @@
+exports.privatekey = /* replace this comment with your private key */;
+exports.publickey = /* replace this comment with your public key */;
+
+/* when you've done that, rename this file captcha.js */

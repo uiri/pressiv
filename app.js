@@ -5,6 +5,10 @@ var fs = require('fs')
   , everyauth = require('everyauth')
   , jade = require('jade')
   , passhash = require('password-hash')
+  , Recaptcha = require('recaptcha').Recaptcha
+  , localcaptcha = require('./captcha.js')
+  , publiccaptchakey = localcaptcha.publickey
+  , privatecaptchakey = localcaptcha.privatekey
   , app = require('express').createServer();
 
 var alphanum = new RegExp('^[A-Za-z0-9]+$');
@@ -14,7 +18,7 @@ everyauth.debug = true;
 var nano = require('nano')('http://localhost:5984');
 var db = nano.use('pressiv');
 var dbobj;
-db.get('pressiv_users', {}, function (err, body) {
+db.get('pressiv_users', function (err, body) {
     if (!err) {
 	dbobj = body;
     }
@@ -69,13 +73,31 @@ everyauth.password
     .getRegisterPath('/sign_up')
     .postRegisterPath('/sign_up')
     .registerView('register.jade')
+    .registerLocals( function(req, res) {
+	var recaptcha = new Recaptcha(publiccaptchakey, privatecaptchakey);
+	return { recaptcha_form: recaptcha.toHTML() };
+    })
+    .extractExtraRegistrationParams( function(req) {
+	return { remoteip: req.connection.remoteAddres,
+		 captchachallenge: req.body.recaptcha_challenge_field,
+		 captcharesponse: req.body.recaptcha_response_field };
+    })
     .validateRegistration( function (newUserAttrs) {
+	var promise = this.Promise();
 	var errors = [];
 	var login = newUserAttrs.login;
 	if (!login.match(alphanum)) errors.push('Login must be alphanumeric');
 	if (login.length < 5) errors.push('Login must be at least 5 characters long');
 	if (checkForLogin(login)) errors.push('Login already taken');
-	return errors;
+	var captchadata = { remoteip: newUserAttrs.remoteip,
+			    challenge: newUserAttrs.captchachallenge,
+			    response: newUserAttrs.captcharesponse };
+	recaptcha = new Recaptcha(publiccaptchakey, privatecaptchakey, captchadata);
+	recaptcha.verify(function (success, error_code) {
+	    if (success) { promise.fulfill(); }
+	    else { errors.push('Recaptcha is invalid'); console.log("Invalid captcha!"); promise.fulfill(errors); }
+	});
+	return promise;
     })
     .registerUser( function (newUserAttrs) {
 	var login = newUserAttrs.login;
@@ -111,27 +133,29 @@ app.get('/', function(req, res, next) {
 
 app.post('/new', function(req, res, next) {
     var name = req.body.name;
-    if (req.user) {
-	if (!name.match(alphanum)) {
-	    res.render('new.jade', {'errors': ['Presentation name must be alphanumeric']});
-	    return;
-	}
-	var presentations = dbobj.users[req.user.id].presentations;
-	var notexist = true;
-	if (typeof(presentations[name]) != "undefined")
-	    notexist = false;
-	if (notexist) {
-	    newpres = new Object;
-	    newpres.name = name;
-	    newpres.slides = new Array;
-	    presentations[name] = newpres;
-	    makeDirectories(req.user.login + '/' + name);
-	    db.insert(dbobj, 'pressiv_users', insertCallback);
-	    res.redirect('/edit?presentation=' + name);
-	}
-    } else {
+    if (!req.user) {
 	res.redirect('/');
+	return;
     }
+    if (!name.match(alphanum)) {
+	res.render('new.jade', {'errors': ['Presentation name must be alphanumeric']});
+	return;
+    }
+    var presentations = dbobj.users[req.user.id].presentations;
+    var exist = false;
+    if (typeof(presentations[name]) != "undefined")
+	exist = true;
+    if (exist) {
+	res.render('new.jade', {'errors': ['You already have a presentation with that name']});
+	return;
+    }
+    newpres = new Object;
+    newpres.name = name;
+    newpres.slides = new Array;
+    presentations[name] = newpres;
+    makeDirectories(req.user.login + '/' + name);
+    db.insert(dbobj, 'pressiv_users', insertCallback);
+    res.redirect('/edit?presentation=' + name);
 });
 
 app.post('/edit', function(req, res, next) {

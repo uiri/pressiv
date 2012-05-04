@@ -98,10 +98,10 @@ script
     return innerhtml;
   }
 
-select
+select(id='selectapresentation')
   - each presentation in everyauth.user.presentations
     option(value=presentation.name) #{presentation.name}
-input(type='button', value='Select')
+input(type='button', value='Select', onclick="document.location = document.location.toString().substring(0, document.location.toString().lastIndexOf('/')) + '/edit?presentation=' + document.getElementById('selectapresentation').value;")
 br
 br
 form(method='post', id='generatorform')

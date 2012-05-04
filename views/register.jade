@@ -10,5 +10,7 @@ form(method='post')
   #password
     label(for=everyauth.password.passwordFormFieldName) Password
     input(type='password', name=everyauth.password.passwordFormFieldName)
+  #recaptcha
+    != recaptcha_form
   #submit
     input(type='submit') Register
